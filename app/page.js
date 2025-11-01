@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const LANGUAGE_ORDER = [
   {
@@ -19,6 +19,13 @@ const LANGUAGE_ORDER = [
     names: { en: "English", zh: "英语", my: "အင်္ဂလိပ်" },
   },
 ];
+
+const LANGUAGE_CODES = new Set(LANGUAGE_ORDER.map((item) => item.code));
+const MAX_HISTORY_LENGTH = 10;
+const STORAGE_KEYS = {
+  preferences: "myao:preferences",
+  history: "myao:history",
+};
 
 const UI_STRINGS = {
   my: {
@@ -95,7 +102,21 @@ const accentByLanguage = {
 
 function getLanguageName(code, uiLang) {
   const lang = LANGUAGE_ORDER.find((item) => item.code === code);
-  return lang ? lang.names[uiLang] : code;
+  if (!lang) return code;
+  return lang.names[uiLang] ?? lang.names.en ?? code;
+}
+
+function isSupportedLanguage(code) {
+  return LANGUAGE_CODES.has(code);
+}
+
+function safeParseJSON(value) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.error("Failed to parse stored JSON:", error);
+    return null;
+  }
 }
 
 export default function Home() {
@@ -109,7 +130,61 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const strings = useMemo(() => UI_STRINGS[siteLang], [siteLang]);
+  const strings = useMemo(
+    () => UI_STRINGS[siteLang] ?? UI_STRINGS.en,
+    [siteLang],
+  );
+  const preferencesHydrated = useRef(false);
+  const historyHydrated = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedPreferences = safeParseJSON(
+      localStorage.getItem(STORAGE_KEYS.preferences),
+    );
+
+    if (storedPreferences) {
+      const { siteLang: savedSite, sourceLang: savedSource, targetLang: savedTarget } =
+        storedPreferences;
+
+      if (isSupportedLanguage(savedSite)) {
+        setSiteLang(savedSite);
+      }
+      if (isSupportedLanguage(savedSource)) {
+        setSourceLang(savedSource);
+      }
+      if (isSupportedLanguage(savedTarget)) {
+        setTargetLang(savedTarget);
+      }
+    }
+
+    const storedHistory = safeParseJSON(
+      localStorage.getItem(STORAGE_KEYS.history),
+    );
+
+    if (Array.isArray(storedHistory)) {
+      const sanitizedHistory = storedHistory
+        .filter(
+          (item) =>
+            item &&
+            typeof item.input === "string" &&
+            typeof item.output === "string" &&
+            isSupportedLanguage(item.sourceLang) &&
+            isSupportedLanguage(item.targetLang),
+        )
+        .slice(0, MAX_HISTORY_LENGTH);
+
+      if (sanitizedHistory.length > 0) {
+        setHistory(sanitizedHistory);
+      }
+    }
+
+    preferencesHydrated.current = true;
+    historyHydrated.current = true;
+  }, []);
 
   useEffect(() => {
     const selected = LANGUAGE_ORDER.find((item) => item.code === siteLang);
@@ -124,6 +199,32 @@ export default function Home() {
     const timer = setTimeout(() => setCopied(false), 1500);
     return () => clearTimeout(timer);
   }, [copied]);
+
+  useEffect(() => {
+    if (!preferencesHydrated.current || typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.setItem(
+      STORAGE_KEYS.preferences,
+      JSON.stringify({
+        siteLang,
+        sourceLang,
+        targetLang,
+      }),
+    );
+  }, [siteLang, sourceLang, targetLang]);
+
+  useEffect(() => {
+    if (!historyHydrated.current || typeof window === "undefined") {
+      return;
+    }
+
+    localStorage.setItem(
+      STORAGE_KEYS.history,
+      JSON.stringify(history.slice(0, MAX_HISTORY_LENGTH)),
+    );
+  }, [history]);
 
   const handleSwapLanguages = () => {
     setSourceLang(targetLang);
@@ -167,16 +268,17 @@ export default function Home() {
       }
 
       setTranslation(payload.translation);
-      setHistory((prev) => [
-        {
+      setHistory((prev) => {
+        const entry = {
           id: Date.now(),
           input: trimmed,
           output: payload.translation,
           sourceLang,
           targetLang,
-        },
-        ...prev.slice(0, 4),
-      ]);
+        };
+
+        return [entry, ...prev].slice(0, MAX_HISTORY_LENGTH);
+      });
     } catch (error) {
       console.error("Translation error:", error);
       setErrorMessage(strings.errorGeneric);
