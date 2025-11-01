@@ -29,7 +29,7 @@ const STORAGE_KEYS = {
 
 const UI_STRINGS = {
   my: {
-    heroTitle: "မြောက်ဘာသာပြန်",
+    heroTitle: "Myao Translate",
     heroSubtitle:
       "တရုတ်၊ မြန်မာ၊ အင်္ဂလိပ် ဘာသာစကားများကို တိတိကျကျ ဖတ်ရှုအို့မြောက်စေသော အင်တာနက်အခြေပြု မျှော်မှန်းချက်ထားသောဝန်ဆောင်မှု။",
     siteLanguage: "ဝဘ်ဆိုဒ် ဘာသာ",
@@ -51,7 +51,7 @@ const UI_STRINGS = {
     historyEmpty: "အသစ် ဘာသာပြန်ခြင်းစတင်ပါ၊ မှတ်တမ်း ပြသပေးပါမည်။",
   },
   zh: {
-    heroTitle: "缅妙翻译",
+    heroTitle: "Myao Translate",
     heroSubtitle: "为缅甸朋友打造的中缅英三语互译助手，助力生意、旅行与日常沟通。",
     siteLanguage: "站点语言",
     sourceLabel: "原始语言",
@@ -322,11 +322,10 @@ export default function Home() {
                     key={language.code}
                     type="button"
                     onClick={() => setSiteLang(language.code)}
-                    className={`rounded-full border px-3 py-1 text-sm font-medium transition ${
-                      siteLang === language.code
+                    className={`rounded-full border px-3 py-1 text-sm font-medium transition ${siteLang === language.code
                         ? "border-orange-400 bg-orange-500 text-white shadow-md"
                         : "border-slate-200 bg-white/70 text-slate-600 hover:border-orange-300 hover:text-orange-600"
-                    }`}
+                      }`}
                   >
                     {language.names[siteLang]}
                   </button>
